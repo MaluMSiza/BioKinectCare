@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - biokinectcare-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/biokinectcare
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - postgres
+      - mqtt
+    networks:
+      - biokinectcare-network
+
+  mqtt:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    networks:
+      - biokinectcare-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=biokinectcare
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - biokinectcare-network
+
+  sensor_mock:
+    build:
+      context: ./sensor_mock
+      dockerfile: Dockerfile
+    environment:
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt
+    networks:
+      - biokinectcare-network
+
+networks:
+  biokinectcare-network:
+    driver: bridge
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+  postgres-data:
